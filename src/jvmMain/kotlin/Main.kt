@@ -3,6 +3,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
+import androidx.compose.material.TextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -10,7 +11,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
-import kotlin.random.Random
 
 fun main() = application {
     Window(onCloseRequest = ::exitApplication) {
@@ -20,29 +20,60 @@ fun main() = application {
 
 @Composable
 fun App() {
-    var ean13 by remember { mutableStateOf(generateRandomEAN13()) }
     var showBarCode by remember { mutableStateOf(false) }
+    var inputText by remember { mutableStateOf("") }
+    var eanCode by remember { mutableStateOf("") }
+    var showTooShortError by remember { mutableStateOf(false) }
 
     MaterialTheme {
         Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxSize(),
         ) {
+            TextField(
+                value = inputText,
+                onValueChange = { newText ->
+                    val actualText = newText.filter { it.isDigit() }
+                    if (newText.length <= 12) {
+                        inputText = actualText
+                        showTooShortError = false
+                    }
+                },
+                maxLines = 1,
+                isError = showTooShortError,
+            )
+            if (showTooShortError) {
+                Text(
+                    text = "Trzeba wprowadzić 12 cyfr",
+                    color = Color.Red
+                )
+            }
+
+            Spacer(modifier = Modifier.height(height = 16.dp))
+
             Button(onClick = {
-                ean13 = generateRandomEAN13() // Generowanie nowego EAN-13
-                showBarCode = true
+                if (inputText.length < 12) {
+                    showTooShortError = true
+                    showBarCode = false
+                } else {
+                    showTooShortError = false
+                    val checkSum = calculateCheckDigit(inputText)
+                    eanCode = inputText + checkSum
+                    showBarCode = true
+                }
             }) {
-                Text("Generuj nowy kod EAN-13")
+                Text("Generuj nowy kod kreskowy")
             }
 
             if (showBarCode) {
-                Text(text = "Kod EAN-13: $ean13")
-                Barcode(ean13)
+                Text(text = "Kod EAN-13: $eanCode")
+                Barcode(eanCode)
             }
         }
     }
 }
+
 
 @Composable
 fun Barcode(ean13: String) {
@@ -174,14 +205,6 @@ fun Barcode(ean13: String) {
     }
 }
 
-fun generateRandomEAN13(): String {
-    // Generujemy pierwsze 12 cyfr losowo
-    val eanBase = (1..12).joinToString("") { Random.nextInt(0, 10).toString() }
-
-    val checkDigit = calculateCheckDigit(eanBase)
-
-    return eanBase + checkDigit
-}
 
 fun calculateCheckDigit(ean: String): String {
     val sum = ean.mapIndexed { index, c ->
